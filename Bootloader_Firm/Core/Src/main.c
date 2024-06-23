@@ -51,6 +51,7 @@
 
 #define FW_VERSION					0x01U
 #define CHIP_ID						0x02U
+#define Erase						0x03U
 
 
 
@@ -96,14 +97,13 @@ void BootLoader_Rx(void);
 
 void send_firmware_and_bl_details(uint8_t* UART_RX_BUFFER);
 void send_chipId(uint8_t* UART_RX_BUFFER);
+void Erase_Flash(uint8_t* UART_RX_BUFFER);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 char uart2[] = "Hello from debug\r\n";
-
-
 uint8_t UART_RX_BUFFER[RX_Length];
 /* USER CODE END 0 */
 
@@ -399,6 +399,9 @@ void BootLoader_Rx(void)
 			send_chipId(UART_RX_BUFFER);
 			break;
 
+		case Erase:
+				Erase_Flash(UART_RX_BUFFER);
+
 		default:
 			  HAL_UART_Transmit(&huart2, (uint8_t*)"Send appropiate command\r\n" ,25, HAL_MAX_DELAY);
 			  break;
@@ -439,6 +442,69 @@ void send_firmware_and_bl_details(uint8_t* UART_RX_BUFFER)
 
 	}
 
+}
+
+void send_chipID(uint8_t* UART_RX_BUFFER){
+
+
+	//not doing crc
+	char chipID[] = "stm32F401ceu6";
+	print(chipID);
+
+}
+
+
+void Erase_Flash(uint8_t* UART_RX_BUFFER)
+{
+
+	/*
+	 * stm32 sectors :
+Sector 0 0x0800 0000 - 0x0800 3FFF 16 Kbytes
+Sector 1 0x0800 4000 - 0x0800 7FFF 16 Kbytes
+Sector 2 0x0800 8000 - 0x0800 BFFF 16 Kbytes
+Sector 3 0x0800 C000 - 0x0800 FFFF 16 Kbytes
+Sector 4 0x0801 0000 - 0x0801 FFFF 64 Kbytes
+Sector 5 0x0802 0000 - 0x0803 FFFF 128 Kbytes
+Sector 6 0x0804 0000 - 0x0805 FFFF 128 Kbytes
+Sector 7 0x0806 0000 - 0x0807 FFFF 128 Kbytes
+	 */
+	FLASH_EraseInitTypeDef  erase_flash; // this is given by hal library
+
+	size_t sector_number; // There are overall 8 sectors -> so for each sector we will choose one number // 2nd byte
+	size_t number_of_sector ;// third byte
+	size_t sectorError , status;
+
+	sector_number = UART_RX_BUFFER[1];
+	sectorError =   UART_RX_BUFFER[2];
+
+	if(sector_number = 8){
+		erase_flash.TypeErase = FLASH_TYPEERASE_MASSERASE;
+	}
+	else {
+
+		erase_flash.TypeErase = FLASH_TYPEERASE_SECTORS;
+		erase_flash.Sector =  sector_number;
+		erase_flash.NbSectors = number_of_sector;
+}
+
+		erase_flash.Banks = FLASH_BANK_1;
+
+		//Gain access to modify the FLASH registers
+		HAL_FLASH_Unlock();
+		erase_flash.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+		/**
+		  * @brief  Perform a mass erase or erase the specified FLASH memory sectors
+		  * @param[in]  pEraseInit pointer to an FLASH_EraseInitTypeDef structure that
+		  *         contains the configuration information for the erasing.
+		  *
+		  * @param[out]  SectorError pointer to variable  that
+		  *         contains the configuration information on faulty sector in case of error
+		  *         (0xFFFFFFFFU means that all the sectors have been correctly erased)
+		  *
+		  * @retval HAL Status
+		  */
+		status = (uint8_t) HAL_FLASHEx_Erase(&erase_flash, &sectorError);
+		HAL_FLASH_Lock();
 
 }
 
